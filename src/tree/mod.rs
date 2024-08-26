@@ -42,7 +42,7 @@ struct DecisionTreeClassifier {
     max_depth: usize,
 }
 
-impl DecisionTreeClassifier {
+impl DecisionTreeClassifierModel {
     fn new(min_samples_split: usize, max_depth: usize) -> Result<Self, &'static str> {
         if min_samples_split < 2 {
             return Err("Error: Minimum samples split must be greater than or equal to 2");
@@ -87,9 +87,9 @@ mod tests {
 
     #[test]
     fn test_tree_creation_success() {
-        let tree = DecisionTreeClassifier::new(2, 2);
+        let tree = DecisionTreeClassifierModel::new(2, 2);
         assert!(tree.is_ok());
-        assert_eq!(tree.unwrap(), DecisionTreeClassifier {
+        assert_eq!(tree.unwrap(), DecisionTreeClassifierModel {
             root: None,
             min_samples_split: 2, 
             max_depth: 2
@@ -98,14 +98,14 @@ mod tests {
 
     #[test]
     fn test_tree_creation_error_min_samples_split() {
-        let tree = DecisionTreeClassifier::new(1, 2);
+        let tree = DecisionTreeClassifierModel::new(1, 2);
         assert!(tree.is_err());
         assert_eq!(tree.unwrap_err(), "Error: Minimum samples split must be greater than or equal to 2");
     }
 
     #[test]
     fn test_tree_creation_error_max_depth() {
-        let tree = DecisionTreeClassifier::new(2, 1);
+        let tree = DecisionTreeClassifierModel::new(2, 1);
         assert!(tree.is_err());
         assert_eq!(tree.unwrap_err(), "Error: Maximum depth must be greater than or equal to 2");
     }
