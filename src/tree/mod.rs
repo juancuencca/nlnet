@@ -1,5 +1,15 @@
 use std::{collections::{HashMap, HashSet}, process};
 
+pub struct BestSplit {
+    pub feature_index: usize,
+    pub threshold: f64,
+    pub info_gain: f64,
+    pub x_left: Vec<Vec<f64>>,
+    pub y_left: Vec<u32>,
+    pub x_right: Vec<Vec<f64>>,
+    pub y_right: Vec<u32>,
+}
+
 #[derive(Debug, PartialEq)]
 struct Node {
     feature_index: Option<usize>,
@@ -35,14 +45,14 @@ impl Node {
 }
 
 #[derive(Debug, PartialEq)]
-struct DecisionTree {
+pub struct DecisionTree {
     root: Option<Box<Node>>,
     min_samples_split: usize,
     max_depth: usize,
 }
 
 impl DecisionTree {
-    fn new(min_samples_split: usize, max_depth: usize) -> Result<Self, &'static str> {
+    pub fn new(min_samples_split: usize, max_depth: usize) -> Result<Self, &'static str> {
         if min_samples_split < 2 { 
             return Err("Error: min_samples_split less than 2"); 
         }
@@ -55,7 +65,7 @@ impl DecisionTree {
 }
 
 impl DecisionTree {
-    fn fit(&mut self, x: &[Vec<f64>], y: &[u32]) {
+    pub fn fit(&mut self, x: &[Vec<f64>], y: &[u32]) {
         self.root = self.build_tree(x, y, 0);    
     }
 
@@ -69,13 +79,27 @@ impl DecisionTree {
         
         if num_samples >= self.min_samples_split && curr_depth <= self.max_depth {
             let best_split = self.get_best_split(x, y, num_features);       
+
+            if let Some(best_split) = best_split {
+                let left_subtree = self.build_tree(&best_split.x_left, &best_split.y_left, curr_depth + 1).unwrap();
+                let right_subtree = self.build_tree(&best_split.x_right, &best_split.y_right, curr_depth + 1).unwrap();
+                
+                return Some(Box::new(Node::new_decision(
+                    best_split.feature_index, 
+                    best_split.threshold, 
+                    best_split.info_gain, 
+                    left_subtree, 
+                    right_subtree
+                )));
+            }
         }
 
         self.calculate_leaf_node(y)
     }
 
-    fn get_best_split(&self, x: &[Vec<f64>], y: &[u32], num_features: usize) {
-        let max_info_gain = f64::NEG_INFINITY;
+    fn get_best_split(&self, x: &[Vec<f64>], y: &[u32], num_features: usize) -> Option<BestSplit> {
+        let mut max_info_gain = f64::NEG_INFINITY;
+        let mut best_split: Option<BestSplit> = None;
 
         for feature_index in 0..num_features {
             let features_values = &x[feature_index];
@@ -87,13 +111,41 @@ impl DecisionTree {
                     });
 
                 if y_left.len() > 0 && y_right.len() > 0 {
-                    let info_gain = information_gain(y, &y_left, &y_right, "gini");
-                    if info_gain > max_info_gain {
-                        
+                    let curr_info_gain = information_gain(y, &y_left, &y_right, "gini");
+                    if curr_info_gain > max_info_gain {
+                        max_info_gain = curr_info_gain;
+                        best_split = Some(BestSplit {
+                            feature_index,
+                            threshold,
+                            info_gain: curr_info_gain,
+                            x_left,
+                            y_left,
+                            x_right,
+                            y_right
+                        });
                     }
                 }
             }
         }
+        best_split
+    }
+
+    fn print_tree(&self, tree: &Option<Box<Node>>) {
+        if let Some(node) = tree {
+            if let Some(value) = node.value {
+                println!("{value}");
+            } else {
+                println!("X_{:?} <= {:?} ? {:.2}", node.feature_index.unwrap(), node.threshold.unwrap(), node.info_gain.unwrap());
+                print!("%sleft: ");
+                self.print_tree(&node.left);
+                println!("%sright: ");
+                self.print_tree(&node.right);
+            }
+        }
+    }
+
+    pub fn print(&self) {
+        self.print_tree(&self.root);
     }
 
     fn calculate_leaf_node(&self, y: &[u32]) -> Option<Box<Node>> {
@@ -152,6 +204,7 @@ fn split(x: &[Vec<f64>], y: &[u32], num_features: usize, feature_index: usize, t
 
 fn information_gain(y: &[u32], y_left: &[u32], y_right: &[u32], mode: &str) -> f64 {
     let mut info_gain = 0.0;
+
     let l_weight = y_left.len() as f64 / y.len() as f64;
     let r_weight = y_right.len() as f64 / y.len() as f64;
 
@@ -311,4 +364,3 @@ mod tests {
         );
     }
 }
-
