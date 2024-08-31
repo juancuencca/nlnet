@@ -154,6 +154,42 @@ impl DecisionTree {
             None => { return None; }
         }
     }
+
+    pub fn predict(&self, x: &[Vec<f64>]) -> Vec<u32> {
+        x.iter()
+            .map(|x| self.make_prediction(x, &self.root))
+            .collect()
+    }
+
+    fn make_prediction(&self, x: &[f64], tree: &Option<Box<Node>>) -> u32 {
+        match tree {
+            Some(node) => {
+                if let Some(value) = node.value {
+                    return value;
+                }
+
+                let feature_val = x[node.feature_index.unwrap()];
+                if feature_val <= node.threshold.unwrap() {
+                    self.make_prediction(x, &node.left)
+                } else {
+                    self.make_prediction(x, &node.right)
+                }
+            }
+            None => panic!("Tree node is None"), // Handle this case according to your needs
+        }
+    }
+}
+
+pub fn accuracy(y_true: &[u32], y_pred: &[u32]) -> f64 {
+    assert_eq!(y_true.len(), y_pred.len(), "Length of true labels and predicted labels must be equal");
+
+    let correct_predictions = y_true
+        .iter()
+        .zip(y_pred.iter())
+        .filter(|&(true_val, pred_val)| true_val == pred_val)
+        .count();
+
+    correct_predictions as f64 / y_true.len() as f64
 }
 
 fn most_frequent<T: Eq + std::hash::Hash + Copy>(items: &[T]) -> Option<&T> {
@@ -203,16 +239,13 @@ fn split(x: &[Vec<f64>], y: &[u32], num_features: usize, feature_index: usize, t
 }
 
 fn information_gain(y: &[u32], y_left: &[u32], y_right: &[u32], mode: &str) -> f64 {
-    let mut info_gain = 0.0;
-
     let l_weight = y_left.len() as f64 / y.len() as f64;
     let r_weight = y_right.len() as f64 / y.len() as f64;
 
-    if mode == "gini" {
-        info_gain = gini_index(y) - (l_weight * gini_index(y_left)) - (r_weight * gini_index(y_right));
-    } else {
-        info_gain = entropy(y) - (l_weight * entropy(y_left)) - (r_weight * entropy(y_right));
-    }
+    let info_gain = match mode {
+        "gini" => gini_index(y) - (l_weight * gini_index(y_left)) - (r_weight * gini_index(y_right)),
+        _ => entropy(y) - (l_weight * entropy(y_left)) - (r_weight * entropy(y_right))
+    };
 
     info_gain
 }
